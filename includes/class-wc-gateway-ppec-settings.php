@@ -139,8 +139,9 @@ class WC_Gateway_PPEC_Settings {
 		if ( $this->_is_setting_loaded && ! $force_reload ) {
 			return $this;
 		}
-		$this->_settings          = (array) get_option( 'woocommerce_ppec_paypal_settings', array() );
-		$this->_is_setting_loaded = true;
+		$this->_settings            = (array) get_option( 'woocommerce_ppec_paypal_settings', array() );
+		$this->_settings['use_spb'] = ! apply_filters( 'woocommerce_paypal_express_checkout_disable_smart_payment_buttons', false, $this ) ? 'yes' : 'no';
+		$this->_is_setting_loaded   = true;
 		return $this;
 	}
 
@@ -196,6 +197,36 @@ class WC_Gateway_PPEC_Settings {
 	 */
 	public function get_active_api_credentials() {
 		return 'live' === $this->get_environment() ? $this->get_live_api_credentials() : $this->get_sandbox_api_credentials();
+	}
+
+	/**
+	 * Get REST API credentials for live environment.
+	 *
+	 * @since 1.7.0
+	 * @return WC_Gateway_PPEC_REST_Client_Credential
+	 */
+	public function get_live_rest_api_credentials() {
+		return new WC_Gateway_PPEC_REST_Client_Credential( $this->api_client_id, $this->api_secret );
+	}
+
+	/**
+	 * Get REST API credentials for sandbox environment.
+	 *
+	 * @since 1.7.0
+	 * @return WC_Gateway_PPEC_REST_Client_Credential
+	 */
+	public function get_sandbox_rest_api_credentials() {
+		return new WC_Gateway_PPEC_REST_Client_Credential( $this->sandbox_api_client_id, $this->sandbox_api_secret );
+	}
+
+	/**
+	 * Get REST API credentials for current environment.
+	 *
+	 * @since 1.7.0
+	 * @return WC_Gateway_PPEC_REST_Client_Credential
+	 */
+	public function get_active_rest_api_credentials() {
+		return 'live' === $this->get_environment() ? $this->get_live_rest_api_credentials() : $this->get_sandbox_rest_api_credentials();
 	}
 
 	/**

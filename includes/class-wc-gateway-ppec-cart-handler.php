@@ -412,7 +412,6 @@ class WC_Gateway_PPEC_Cart_Handler {
 	/**
 	 * Convert from settings to values expected by PayPal Button API:
 	 *   - 'small' button size only allowed if layout is 'vertical'.
-	 *   - 'label' only allowed if layout is 'vertical'.
 	 *   - 'disallowed' funding methods if layout is 'vertical'.
 	 *   - 'allowed' funding methods if layout is 'horizontal'.
 	 *   - Only allow PayPal Credit if supported.
@@ -428,12 +427,12 @@ class WC_Gateway_PPEC_Cart_Handler {
 		$data = array(
 			'button_layout'        => $settings->{ $prefix . 'button_layout' },
 			'button_size'          => $settings->{ $prefix . 'button_size' },
+			'button_label'         => $settings->{ $prefix . 'button_label' },
 			'hide_funding_methods' => $settings->{ $prefix . 'hide_funding_methods' },
 			'credit_enabled'       => $settings->{ $prefix . 'credit_enabled' },
 		);
 
 		$button_layout        = $data['button_layout'];
-		$data['button_label'] = 'horizontal' === $button_layout ? 'buynow' : null;
 		$data['button_size']  = 'vertical' === $button_layout && 'small' === $data['button_size']
 			? 'medium'
 			: $data['button_size'];
@@ -467,9 +466,12 @@ class WC_Gateway_PPEC_Cart_Handler {
 		wp_enqueue_style( 'wc-gateway-ppec-frontend', wc_gateway_ppec()->plugin_url . 'assets/css/wc-gateway-ppec-frontend.css' );
 
 		$is_cart     = is_cart() && ! WC()->cart->is_empty() && 'yes' === $settings->cart_checkout_enabled;
-		$is_product  = is_product() && 'yes' === $settings->checkout_on_single_product_enabled;
+		$is_product  = ( is_product() || wc_post_content_has_shortcode( 'product_page' ) ) && 'yes' === $settings->checkout_on_single_product_enabled;
 		$is_checkout = is_checkout() && 'yes' === $settings->mark_enabled && ! wc_gateway_ppec()->checkout->has_active_session();
 		$page        = $is_cart ? 'cart' : ( $is_product ? 'product' : ( $is_checkout ? 'checkout' : null ) );
+
+		$rest_creds  = $settings->get_active_rest_api_credentials();
+		$use_js_sdk  = $settings->use_spb && ! empty( $rest_creds->get_client_id() ) && ! empty( $rest_creds->get_client_secret() );
 
 		if ( 'yes' !== $settings->use_spb && $is_cart ) {
 			wp_enqueue_script( 'paypal-checkout-js', 'https://www.paypalobjects.com/api/checkout.js', array(), null, true );
@@ -487,17 +489,18 @@ class WC_Gateway_PPEC_Cart_Handler {
 			);
 
 		} elseif ( 'yes' === $settings->use_spb ) {
-			wp_register_script( 'paypal-checkout-js', 'https://www.paypalobjects.com/api/checkout.js', array(), null, true );
-			wp_register_script( 'wc-gateway-ppec-smart-payment-buttons', wc_gateway_ppec()->plugin_url . 'assets/js/wc-gateway-ppec-smart-payment-buttons.js', array( 'jquery', 'paypal-checkout-js' ), wc_gateway_ppec()->version, true );
-
 			$data = array(
+				'use_js_sdk'           => $use_js_sdk,
 				'environment'          => 'sandbox' === $settings->get_environment() ? 'sandbox' : 'production',
 				'locale'               => $settings->get_paypal_locale(),
 				'page'                 => $page,
 				'button_color'         => $settings->button_color,
 				'button_shape'         => $settings->button_shape,
+				'button_label'         => $settings->button_label,
 				'start_checkout_nonce' => wp_create_nonce( '_wc_ppec_start_checkout_nonce' ),
 				'start_checkout_url'   => WC_AJAX::get_endpoint( 'wc_ppec_start_checkout' ),
+				'return_url'           => wc_get_checkout_url(),
+				'generic_error_msg'    => wp_kses( __( 'An error occurred while processing your PayPal payment. Please contact the store owner for assistance.', 'woocommerce-gateway-paypal-express-checkout' ), array() ),
 			);
 
 			if ( ! is_null(  $page ) ) {
@@ -520,6 +523,25 @@ class WC_Gateway_PPEC_Cart_Handler {
 			}
 			$data = array_merge( $data, $mini_cart_data );
 
+			if ( $use_js_sdk ) {
+				$script_args = array(
+					'client-id'  => $rest_creds->get_client_id(),
+					'locale'     => $settings->get_paypal_locale(),
+					'components' => 'buttons',
+					'commit'     => 'checkout' === $page ? 'true' : 'false',
+				);
+
+				// TODO: Handle 'disable-funding' for mini cart.
+				if ( ! empty( $data['disallowed_methods'] ) ) {
+					$script_args['disable-funding'] = implode( ',', array_map( 'strtolower', $data['disallowed_methods'] ) );
+				}
+
+				wp_register_script( 'paypal-checkout-js', add_query_arg( $script_args, 'https://www.paypal.com/sdk/js' ), array(), null, true );
+			} else {
+				wp_register_script( 'paypal-checkout-js', 'https://www.paypalobjects.com/api/checkout.js', array(), null, true );
+			}
+
+			wp_register_script( 'wc-gateway-ppec-smart-payment-buttons', wc_gateway_ppec()->plugin_url . 'assets/js/wc-gateway-ppec-smart-payment-buttons.js', array( 'jquery', 'paypal-checkout-js' ), wc_gateway_ppec()->version, true );
 			wp_localize_script( 'wc-gateway-ppec-smart-payment-buttons', 'wc_ppec_context', $data );
 		}
 
