@@ -72,8 +72,13 @@ class WC_Gateway_PPEC_Cart_Handler {
 		WC()->shipping->reset_shipping();
 		$product = wc_get_product( $post->ID );
 
+<<<<<<< HEAD
+		if ( ! empty( $_POST['product_id'] ) ) {
+			$product = wc_get_product( absint( $_POST['product_id'] ) );
+=======
 		if ( ! empty( $_POST['ppec-add-to-cart'] ) ) {
 			$product = wc_get_product( absint( $_POST['ppec-add-to-cart'] ) );
+>>>>>>> master
 		}
 
 		/**

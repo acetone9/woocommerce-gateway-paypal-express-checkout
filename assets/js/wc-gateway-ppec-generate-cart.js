@@ -100,9 +100,19 @@
 			data[ field_pairs[ i ].name ] = field_pairs[ i ].value;
 		}
 
+<<<<<<< HEAD
+	var generate_cart = function( callback ) {
+		var data = {
+			'nonce':       wc_ppec_generate_cart_context.generate_cart_nonce,
+			'qty':         $( '.quantity .qty' ).val(),
+			'attributes':  $( '.variations_form' ).length ? get_attributes().data : [],
+			'product_id': $( '[name=add-to-cart]' ).val(),
+		};
+=======
 		// If this is a simple product, the "Submit" button has the product ID as "value", we need to include it explicitly
 		data[ 'ppec-add-to-cart' ] = $( '[name=add-to-cart]' ).val();
 >>>>>>> master
+<<<<<<< HEAD
 
 		var field_pairs = form.serializeArray();
 		for ( var i = 0; i < field_pairs.length; i++ ) {
@@ -115,6 +125,8 @@
 
 		// If this is a simple product, the "Submit" button has the product ID as "value", we need to include it explicitly
 		data[ 'ppec-add-to-cart' ] = $( '[name=add-to-cart]' ).val();
+=======
+>>>>>>> fix/checkout-variable-product
 
 		$.ajax( {
 			type:    'POST',
